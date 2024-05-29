@@ -1,75 +1,82 @@
-from collections import Counter
+import os
 import re
+from collections import Counter
 
-def readFile(filePath):
-    with open(filePath, 'r', encoding='utf-8') as file:
-        return file.read()
+def readFile(fileName):
+    with open(fileName, 'r') as file:
+        return file.read().lower()
 
-def getTopWords(text, topN):
-    words = re.findall(r'\b\w+\b', text.lower())
-    wordCounts = Counter(words)
-    return wordCounts.most_common(topN)
+def getWordFrequencies(text, topN):
+    words = re.findall(r'\b\w+\b', text)
+    counter = Counter(words)
+    return counter.most_common(topN)
 
-def displayCommonWords(qWordsSet, kTopWords):
-    commonWords = [(word, count) for word, count in kTopWords if word in qWordsSet]
-    for word, count in commonWords:
+def displayFrequencies(frequencies, label):
+    print(f"{label}  ")
+    for word, count in frequencies:
         print(f"{word}: {count}")
-    print(f"Number of common words: {len(commonWords)}")
-    return commonWords
+
+def getMatchingFrequencies(qFrequencies, kFrequencies):
+    qWords = set(word for word, count in qFrequencies)
+    return [(word, count) for word, count in kFrequencies if word in qWords]
 
 def main():
-    textNum = int(input("Enter the number of known text files(knownテキストの数を入力して下さい。): "))
-
-    # Read questioned.txt
-    qText = readFile('questioned.txt')
-
-    # Variables to keep track of the results and continuation
-    allCommonWordsCounts = []
-    continueFlag = True
-    start = 1
+    textNum = int(input("Enter the number of known texts: "))
+    print()
+    
+    # Read and process questioned.txt
+    questionedText = readFile('questioned.txt')
     increment = 20
-    iterations = 0
-
-    while continueFlag:
-        iterations += 1
-        end = iterations * increment
-        qTopWords = getTopWords(qText, end)
-        qTopWordsDict = dict(qTopWords[start-1:end])
-        qTopWordsSet = set(qTopWordsDict.keys())
-
-        print(f"\nQ frequence word top (questionedテキストの出現回数が多い単語トップ) {start}~{end}:")
-        for word, count in qTopWords[start-1:end]:
-            print(f"{word}: {count}")
-
-        # Process each known file
+    currentRange = increment
+    qFrequencies = getWordFrequencies(questionedText, currentRange)
+    
+    while True:
+        displayFrequencies(qFrequencies, f"Q frequence word 1～{currentRange}")
+        print()
+        
         for i in range(1, textNum + 1):
-            kText = readFile(f'known{i}.txt')
-            kTopWords = getTopWords(kText, end)
-            kTopWordsDict = dict(kTopWords[start-1:end])
-            print(f"\nCommon words in known{i}.txt and Q frequence word {start}~{end} (questionedテキストとknown{i}テキストの出現回数が多い単語トップ{start}~{end}を比較し、その中で共通してる単語と、knownテキスト内での出現回数):")
-            commonWords = displayCommonWords(qTopWordsSet, kTopWords[start-1:end])
-            allCommonWordsCounts.append((i, len(commonWords), commonWords, kTopWordsDict))
+            knownText = readFile(f'known{i}.txt')
+            kFrequencies = getWordFrequencies(knownText, currentRange)
+            displayFrequencies(kFrequencies, f"known{i} frequence word 1～{currentRange}")
+            
+            matchingFrequencies = getMatchingFrequencies(qFrequencies, kFrequencies)
+            print()
+            print(f"Matching frequencies in known{i} for Q frequence word 1～{currentRange}:")
+            displayFrequencies(matchingFrequencies, "")
+            print()
+        
+        continueInput = input("Do you want to continue? ").strip().lower()
+        if continueInput == 'yes':
+            currentRange += increment
+            qFrequencies = getWordFrequencies(questionedText, currentRange)
+        else:
+            break
 
-        # Ask user if they want to continue
-        continueInput = input("Do you want to continue? (yes/no): ").strip().lower()
-        if continueInput != 'yes':
-            continueFlag = False
-        start = end + 1
+    displayFrequencies(qFrequencies, f"Q frequence word 1～{currentRange}")
 
-    # Find the file with the most common words
-    mostCommonK = max(allCommonWordsCounts, key=lambda x: x[1])
+    # Find the best matching known file
+    bestMatchCount = 0
+    bestMatchIndex = None
+    for i in range(1, textNum + 1):
+        knownText = readFile(f'known{i}.txt')
+        kFrequencies = getWordFrequencies(knownText, currentRange)
+        matchingFrequencies = getMatchingFrequencies(qFrequencies, kFrequencies)
+        if len(matchingFrequencies) > bestMatchCount:
+            bestMatchCount = len(matchingFrequencies)
+            bestMatchIndex = i
 
-    print(f"\nMost common words found in known{mostCommonK[0]}.txt(最もquestionedテキストと共通してる単語が発見されたknownテキスト):")
-    for word, count in mostCommonK[2]:
-        print(f"{word}: {count}")
+    if bestMatchIndex is not None:
+        bestMatchText = readFile(f'known{bestMatchIndex}.txt')
+        bestMatchFrequencies = getWordFrequencies(bestMatchText, currentRange)
+        displayFrequencies(bestMatchFrequencies, f"known{bestMatchIndex} frequence word 1～{currentRange}")
 
-    print(f"Number of common words: {mostCommonK[1]}")
-
-    # Check if the most common words are identical to the Q frequence words
-    if qTopWordsDict == mostCommonK[3]:
-        print(f"probably, questioned text is known{mostCommonK[0]}.txt.(多分questioned textはknown{mostCommonK[0]}.txtだろう。)")
+        print()
+        if qFrequencies == bestMatchFrequencies:
+            print(f"questioned.txt is known{bestMatchIndex}.txt.")
+        else:
+            print("questioned.txt doesn't exist in known.txt list")
     else:
-        print("questioned text doesn't exist in known.txt list.(questioned textは読み込んだknownテキストには発見されなかった。)")
+        print("questioned.txt doesn't exist in known.txt list")
 
 if __name__ == "__main__":
     main()
