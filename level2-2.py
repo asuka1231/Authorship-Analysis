@@ -102,5 +102,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# This program is based on level2-1.py and was created using ChatGPT.
